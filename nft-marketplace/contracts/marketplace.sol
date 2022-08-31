@@ -1,4 +1,4 @@
-pragma solidity 0.8.10;
+pragma solidity 0.8.16;
 
 interface IERC721 {
     function transfer(address, uint) external;
@@ -40,20 +40,17 @@ contract Auction {
         require(started, "Not started.");
         require(block.timestamp < endAt, "Ended!");
         require(msg.value > highestBid);
-
-        if (highestBidder != address(0)) {
-            bids[highestBidder] += highestBid;
-        }
-
         highestBid = msg.value;
         highestBidder = msg.sender;
+        bids[highestBidder] += highestBid;
+
     }
 
     function withdraw() external payable {
         uint bal = bids[msg.sender];
         bids[msg.sender] = 0;
-        (bool sent, bytes memory data) = payable(msg.sender).call{value: bal}("");
-        require(sent, "Could not withdraw");
+        bool sent =  payable(address (msg.sender)).send(bal);
+        require(sent, "Failed to send Ether");
 
     }
 
@@ -72,4 +69,20 @@ contract Auction {
 
         ended = true;
     }
+   function endNow() external {
+        require(started, "You need to start first!");
+        require(msg.sender == seller, "You did not start the auction!");
+        require(!ended, "Auction already ended!");
+
+        if (highestBidder != address(0)) {
+            nft.transfer(highestBidder, nftId);
+            (bool sent, bytes memory data) = seller.call{value: highestBid}("");
+            require(sent, "Could not pay seller!");
+        } else {
+            nft.transfer(seller, nftId);
+        }
+
+        ended = true;
+    }
+  
 }
